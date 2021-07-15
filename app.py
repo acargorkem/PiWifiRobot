@@ -43,24 +43,17 @@ def get_bme280_values():
             'humidity': round(bme280.relative_humidity, 2)}
 
 
-# async thread for send sensor data to database server
+# send sensor data to database server
 def post_sensor_values():
     while True:
         url = BASE_URL + 'query.php'
         payload = get_bme280_values()
         payload.update({'api_key': 'gorkem'})
         response = requests.post(url, data=payload, timeout=10)
-        print(response.text)
-        time.sleep(DatabasePostRequestInterval)
+        return response
 
 
-# start sensor post request thread
-post_sensor_thread = threading.Thread(target=post_sensor_values)
-post_sensor_thread.setDaemon(True)
-post_sensor_thread.start()
-
-
-# async thread for send image data to database server
+# send image data to database server
 def post_images():
     while True:
         frame = Camera().get_frame()
@@ -69,17 +62,10 @@ def post_images():
                    'img_file': frame}
 
         response = requests.post(url, data=payload, timeout=10)
-        print(response.text)
-        time.sleep(DatabasePostRequestInterval)
+        return response
 
 
-# start image post request thread
-post_images_thread = threading.Thread(target=post_images)
-post_images_thread.setDaemon(True)
-post_images_thread.start()
-
-
-# async thread for send audio data to database server
+# send audio data to database server
 def post_audio():
     while True:
         url = BASE_URL + 'audio-upload.php'
@@ -87,22 +73,20 @@ def post_audio():
         payload = {'audio_name': time.strftime('%Y-%m-%d__%H-%M-%S'),
                    'audio_data': audio_data}
         response = requests.post(url, data=payload, timeout=30)
-        print(response.text)
-        time.sleep(DatabasePostRequestInterval)
+        return response
 
 
-# start audio post request thread
-post_audio_thread = threading.Thread(target=post_audio)
-post_audio_thread.setDaemon(True)
-post_audio_thread.start()
+def post_requests_thread():
+    post_sensor_values()
+    post_images()
+    post_audio()
+    time.sleep(DatabasePostRequestInterval)
 
-# start tracking thread
-track_thread_left = threading.Thread(target=start_tracking_left)
-track_thread_left.setDaemon(True)
-track_thread_left.start()
-track_thread_right = threading.Thread(target=start_tracking_right)
-track_thread_right.setDaemon(True)
-track_thread_right.start()
+
+# start post requests thread
+post_requests_thread = threading.Thread(target=post_requests_thread)
+post_requests_thread.setDaemon(True)
+post_requests_thread.start()
 
 # start flask server
 app = Flask(__name__)
